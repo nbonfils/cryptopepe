@@ -1,6 +1,7 @@
 package blockchain
 
 import (
+	"crypto/sha256"
 	"encoding/json"
 	"fmt"
 	"log"
@@ -13,9 +14,9 @@ import (
 	"github.com/nbonfils/cryptopepe/schmekles"
 )
 
-//=========
-// Structs
-//=========
+//=======
+// Types
+//=======
 
 // Block is a basic structure for our blockchain
 type Block struct {
@@ -41,9 +42,30 @@ type Data struct {
 	PepeTransactions *[]pepe.Transaction
 }
 
-//=========
-// Methods
-//=========
+//================
+// Header Methods
+//================
+
+// String produce a pretty print of the Header
+func (h *Header) String() string {
+	return fmt.Sprintf(
+		"ID: %v\nDate: %v\nBits: %v\nNonce %v\nMerkle Root: %v\nPrevious Hash: %v\nHash: %v\n",
+		h.ID, h.Timestamp, h.Bits, h.Nonce, h.MerkleRoot, h.PrevHash, h.Hash,
+	)
+}
+
+// Sum256 produce a string that is the hash (sha256) of all Header fields
+// except "Hash"
+func (h *Header) Sum256() string {
+	headerString := fmt.Sprintf("%v%v%v%v%v%v", h.ID, h.Timestamp, h.Bits,
+		h.Nonce, h.MerkleRoot, h.PrevHash)
+
+	return fmt.Sprintf("%x", sha256.Sum256([]byte(headerString)))
+}
+
+//===============
+// Block Methods
+//===============
 
 // NewBlock generates a new block
 func NewBlock() *Block {
@@ -53,29 +75,58 @@ func NewBlock() *Block {
 
 // IsValid check if a block is valid, ie hash fullfil requirement
 func (b *Block) IsValid() bool {
+	log.Printf("[DEBUG] Checking block %v validity", b.Header.ID)
+
 	// Check if target is reached
-	ret, err := regexp.MatchString("^0{5}", b.Header.Hash)
+	match, err := regexp.MatchString("^0{5}", b.Header.Hash)
 	if err != nil {
 		log.Fatal(err)
 	}
+	if !match {
+		return false
+	}
 
-	// TODO check for MerkleRoot and for Nonce
+	// Check for the MerkleRoot
+	// in this order: reward -> schmekles tr -> pepe tr
+	var hashes []byte
+	hashes = append(hashes, b.Data.Reward.Hash[:]...)
+	for _, t := range *b.Data.SchTransactions {
+		hashes = append(hashes, t.Hash[:]...)
+	}
+	for _, t := range *b.Data.PepeTransactions {
+		hashes = append(hashes, t.Hash[:]...)
+	}
+	rootHash := fmt.Sprintf("%x", sha256.Sum256(hashes))
+	if rootHash != b.Header.MerkleRoot {
+		return false
+	}
+
+	// Check for the Nonce validity
+	if b.Header.Hash != b.Header.Sum256() {
+		return false
+	}
 
 	// Transactions must be valid
 	for _, t := range *b.Data.SchTransactions {
-		ret = ret && t.IsValid()
+		if !t.IsValid() {
+			return false
+		}
 	}
 
 	// Transactions must be valid
 	for _, t := range *b.Data.PepeTransactions {
-		ret = ret && t.IsValid()
+		if !t.IsValid() {
+			return false
+		}
 	}
 
-	return ret
+	return true
 }
 
 // Save writes the block on the disk
 func (b *Block) Save() {
+	log.Printf("[DEBUG] Saving block %v on disk", b.Header.ID)
+
 	// Create the directory if it does not already exists
 	if _, err := os.Stat(ChainDir); os.IsNotExist(err) {
 		err := os.Mkdir(ChainDir, os.ModePerm)
