@@ -76,7 +76,13 @@ func NewBlock(id, bits uint32, prevhash string) *Block {
 		PrevHash:  prevhash,
 	}
 
-	data := &Data{}
+	schTransactions := make([]schmekles.Transaction, 0, 256)
+	pepeTransactions := make([]pepe.Transaction, 0, 256)
+
+	data := &Data{
+		SchTransactions:  &schTransactions,
+		PepeTransactions: &pepeTransactions,
+	}
 
 	return &Block{
 		Header: header,
@@ -104,7 +110,22 @@ func (b *Block) NextBlock() *Block {
 
 // MerkleRoot returns the merkle root hash of the block
 func (b *Block) MerkleRoot() string {
-	return ""
+	// in this order: reward -> schmekles tr -> pepe tr
+	var hashes []byte
+	// reward
+	hashes = append(hashes, b.Data.Reward.Hash[:]...)
+	// schmekles transactions
+	for _, t := range *b.Data.SchTransactions {
+		hashes = append(hashes, t.Hash[:]...)
+	}
+	// pepe transactions
+	for _, t := range *b.Data.PepeTransactions {
+		hashes = append(hashes, t.Hash[:]...)
+	}
+
+	merkleRoot := fmt.Sprintf("%x", sha256.Sum256(hashes))
+
+	return merkleRoot
 }
 
 // SetReward will set the special transaction being the reward of the block
