@@ -67,10 +67,62 @@ func (h *Header) Sum256() string {
 // Block Methods
 //===============
 
-// NewBlock generates a new block
-func NewBlock() *Block {
+// NewBlock creates a new block (no hash, no nonce, no data !)
+func NewBlock(id, bits uint32, prevhash string) *Block {
+	header := &Header{
+		ID:        id,
+		Timestamp: time.Now(),
+		Bits:      bits,
+		PrevHash:  prevhash,
+	}
+
+	data := &Data{}
+
+	return &Block{
+		Header: header,
+		Data:   data,
+	}
+}
+
+// GenesisBlock generate the first block of the chain
+func GenesisBlock() *Block {
+	// PrevHash is hash of string "genesis"
+	// TODO Set Bits to have a very low difficulty
+	b := NewBlock(0, 0, "aeebad4a796fcc2e15dc4c6061b45ed9b373f26adfc798ca7d2d8cc58182718e")
+
+	// TODO Set correct null address according to choice of address format
+	b.SetReward("000000")
+
+	return b
+}
+
+// NextBlock generates the next block on the chain after b
+func (b *Block) NextBlock() *Block {
 	// TODO implement
 	return &Block{}
+}
+
+// MerkleRoot returns the merkle root hash of the block
+func (b *Block) MerkleRoot() string {
+	return ""
+}
+
+// SetReward will set the special transaction being the reward of the block
+func (b *Block) SetReward(addr string) {
+	// TODO implement
+	// Don't forget to update MerkleRoot
+}
+
+// AddSchTransaction adds a transaction to the block
+func (b *Block) AddSchTransaction(t schmekles.Transaction) {
+	// TODO implement
+	// Don't forget to update MerkleRoot
+}
+
+// AddPepeTransaction adds a transaction to the block
+func (b *Block) AddPepeTransaction(t pepe.Transaction) {
+	// TODO implement
+	// Don't forget to update MerkleRoot
 }
 
 // IsValid check if a block is valid, ie hash fullfil requirement
